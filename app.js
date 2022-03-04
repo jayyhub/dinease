@@ -134,9 +134,16 @@ router.route('/image/:id').get( (req, res) =>
     });
 });
 
-//PORT 
+//PORT
+/*
 const port = process.env.PORT || 3000;
 app.listen(port, '172.16.69.28', function()
+{
+    console.log(`Server Started on port ${port}...`);
+});
+*/
+
+app.listen('obscure-dawn-48988.herokuapp.com', function()
 {
     console.log(`Server Started on port ${port}...`);
 });
