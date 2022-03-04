@@ -143,7 +143,7 @@ app.listen(port, '172.16.69.28', function()
 });
 */
 
-app.listen('http://dinease.herokuapp.com', function()
+app.listen($PORT, '0.0.0.0', function()
 {
     //console.log(`Server Started on port ${port}...`);
 });
