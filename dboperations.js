@@ -1,7 +1,6 @@
 var config = require('./dbconfig');
 const sql = require('mssql');
 const Modules = require('./modules');
-const { contentDisposition } = require('express/lib/utils');
 
 async function getOrders ()
 {
@@ -33,7 +32,7 @@ async function getAnOrder ()
         }
 
         console.log(incomming_orders);
-        return incomming_orders;
+        return incomming_orders.reverse();
     }
     catch (error)
     {
@@ -98,7 +97,7 @@ async function changeTableStatus (table_id, table_status)
     try
     {
         let pool = await sql.connect(config);
-        let order = await pool.request().query(`UPDATE tables SET table_status='${table_status}' WHERE order_id=${table_id}`);
+        let order = await pool.request().query(`UPDATE tables SET table_status='${table_status}' WHERE table_id=${table_id}`);
         pool.close();
         return order.recordset;
     }
@@ -126,7 +125,7 @@ async function getChefOrders (chef_id, order_status)
             //console.log(temp);
             //console.log(each);
         }
-        return orders.recordsets[0];
+        return orders.recordsets[0].reverse();
     }
     catch (error)
     {
@@ -211,6 +210,74 @@ async function getEmployees ()
     }
 }
 
+async function CheckUname (uname)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query(`SELECT username FROM USER_ WHERE username = '${uname}' `);
+        pool.close();
+        //console.log(orders.recordsets);
+        if (orders.recordsets[0].length > 0)
+        {
+            return true
+        }
+        else
+        {
+            return false
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+async function CheckPhone (number)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query(`SELECT phone_no FROM USER_ WHERE phone_no = ${number}`);
+        pool.close();
+        if (orders.recordsets[0].length > 0)
+        {
+            return true
+        }
+        else
+        {
+            return false
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+async function CheckNIC (nic)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query(`SELECT NIC FROM USER_ WHERE NIC = ${nic} `);
+        pool.close();
+        //console.log(orders.recordsets[0])
+        if (orders.recordsets[0].length > 0)
+        {
+            return true
+        }
+        else
+        {
+            return false
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
 async function addEmployee (employee)
 {
     try
@@ -227,6 +294,7 @@ async function addEmployee (employee)
     catch (error)
     {
         console.log(error);
+        return error;
     }
 }
 
@@ -375,8 +443,9 @@ async function addInventory (inventory)
     {
         let pool = await sql.connect(config);
         let orders = await pool.request().query(`INSERT INTO inventory (inventory_name, date_of_purchase, cost, quantity, total_cost, category_id)
-        VALUES ('${inventory.inventory_name}', '${inventory.date_of_purchase}', '${inventory.cost}', '${inventory.quantity}', 
-                '${inventory.total_cost}', '${inventory.category_id}')`);
+        VALUES ('${inventory.inventory_name}', '${inventory.date_of_purchase}', ${inventory.cost}, ${inventory.quantity}, 
+                ${inventory.total_cost}, ${inventory.category_id})`);
+        orders = await pool.request().query(`SELECT * FROM inventory WHERE inventory_name = '${inventory.inventory_name}'`);
         pool.close();
         return orders.recordsets[0];
     }
@@ -419,6 +488,84 @@ async function getItemCategories ()
     }
 }
 
+async function CheckItemName (item_name)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query(`SELECT item_name FROM items WHERE item_name = '${item_name}' `);
+        pool.close();
+        //console.log(orders.recordsets[0])
+        if (orders.recordsets[0].length > 0)
+        {
+            return true
+        }
+        else
+        {
+            return false
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+async function CheckInventoryItemName (inventory_name)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query(`SELECT inventory_name FROM inventory WHERE inventory_name = '${inventory_name}' `);
+        pool.close();
+        //console.log(orders.recordsets[0])
+        if (orders.recordsets[0].length > 0)
+        {
+            return true
+        }
+        else
+        {
+            return false
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+async function getItemCategoriesById (id)
+{
+    try
+    {
+        let result = []
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query("SELECT * FROM item_category");
+        orders = orders.recordsets[0];
+        for (let i=0 ; i<orders.length ; i++)
+        {
+            let dummy = orders[i].f_category.split(',');
+            //console.log(dummy);
+            for (let cat of orders[i].f_category)
+            {
+                if (cat === id)
+                {
+                    //console.log(orders[i]);
+                    result.push(orders[i]);
+                    continue;
+                }
+            }
+        }
+        pool.close();
+        //console.log(result)
+        return result;
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
 async function getItems ()
 {
     try
@@ -427,6 +574,25 @@ async function getItems ()
         let orders = await pool.request().query("SELECT * FROM items");
         pool.close();
         return orders.recordsets[0];
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+async function getAcceptedCount (u_id)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let chef_orders = await pool.request().query(`select COUNT(order_id) AS chef_count from orders where orders.u_id = ${u_id}`);
+        let total_orders = await pool.request().query(`select COUNT(order_id) AS total_count from orders`);
+        let result = {}
+        result['chef_count'] = chef_orders.recordsets[0][0].chef_count;
+        result['total_count'] = total_orders.recordsets[0][0].total_count;
+        pool.close();
+        return result;
     }
     catch (error)
     {
@@ -557,6 +723,8 @@ async function addOrder (order)
         .query(`INSERT INTO orders (order_time, total_price, payment_mode, order_status, rating, review, table_id, u_id)
                 VALUES ('${order.order_time}', '${order.total_price}', '${order.payment_mode}', '${order.order_status}', 
                         '${order.rating}', '${order.review}', '${order.table_id}', '${order.u_id}')`);
+        pool.close();
+        pool = await sql.connect(config);
         let id = await pool.request()
         .query(`SELECT order_id FROM orders WHERE order_time = '${order.order_time}' AND order_status = '${order.order_status}' AND table_id = '${order.table_id}'`);
         pool.close();
@@ -592,6 +760,7 @@ async function processOrder (o)
         //let o = {...order.body};
 
         let id = await addOrder (o.order);
+        console.log('In procesOrder() addOrder() executed')
 
         console.log("Hello");
 
@@ -599,6 +768,8 @@ async function processOrder (o)
         {   
             let newProd = await addOrdersItems (id, o.items[i]);
         }
+
+        console.log('In procesOrder() addOrderItems() executed')
 
         return id;
     }
@@ -622,6 +793,130 @@ async function getBadReviews ()
         console.log(error);
     }
 }
+
+async function setOrderRatingAndReview (order_id, rating, review)
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders = await pool.request().query(`UPDATE orders SET rating = '${rating}', review = '${review}' where orders.order_id = ${order_id}`);
+        pool.close();
+        return orders;
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+async function getDashboardData ()
+{
+    try
+    {
+        let pool = await sql.connect(config);
+        let orders_q = await pool.request().query(`SELECT COUNT(order_id) AS order_in_queue, (SELECT COUNT(*) FROM tables) AS total_tables FROM orders WHERE order_status IN ('assigned', 'n assg')`);
+        orders_q = [orders_q.recordsets[0][0].order_in_queue, orders_q.recordsets[0][0].total_tables];
+        console.log('CURRENT ORDERS INQUEUE: ', orders_q);
+        let curr_mon_profit = await pool.request().query(`SELECT DATEPART(year, order_time) AS year, DATEPART(MONTH, order_time) AS month, SUM(total_price) AS money_earned FROM orders  WHERE order_status = 'ready' GROUP BY DATEPART(year, order_time), DATEPART(MONTH, order_time) ORDER BY year DESC, month DESC`);
+        curr_mon_profit = curr_mon_profit.recordsets[0];
+        let prev_mon_profit = curr_mon_profit[1];
+        curr_mon_profit = curr_mon_profit[0];
+        console.log('CURRENT MONTH SALES: ', curr_mon_profit);
+        console.log('PREVIOUS MONTH SALES: ', prev_mon_profit);
+        let curr_yr_profit = await pool.request().query(`SELECT DATEPART(year, order_time) AS year, SUM(total_price) AS money_earned FROM orders WHERE order_status='ready' GROUP BY DATEPART(year, order_time) ORDER BY year DESC`);
+        curr_yr_profit = curr_yr_profit.recordsets[0];
+        let prev_yr_profit = curr_yr_profit[1];
+        curr_yr_profit = curr_yr_profit[0];
+        console.log('CURRENT YEAR SALES: ', curr_yr_profit);
+        console.log('PREVIOUS YEAR SALES: ', prev_yr_profit);
+        let list1 = await pool.request().query(`SELECT orders.order_id, USER_.users_name, orders.rating, orders.review FROM orders INNER JOIN dbo.USER_ ON orders.u_id = USER_.u_id WHERE USER_.usertype <> 'admin' ORDER BY orders.order_id`);
+        //console.log(orders.recordsets[0]);
+        list1 = list1.recordsets[0];
+        let list2 = await pool.request().query('SELECT orders_items.order_id, (SELECT items.item_name FROM items WHERE orders_items.item_id = items.item_id) AS dish_name FROM orders_items INNER JOIN orders ON orders_items.order_id = orders.order_id');
+        //console.log(orders.recordsets[0]);
+        list2 = list2.recordsets[0];
+        let emp_count = await pool.request().query(`SELECT COUNT(u_id) AS emp_cnt FROM USER_ WHERE USER_.usertype <> 'admin'`);
+        emp_count = emp_count.recordsets[0][0].emp_cnt;
+        console.log('CURRENT EMPLOYEES: ', emp_count);
+        let daily_profits = await pool.request().query(`SELECT SUM(total_price) AS daily_profs FROM orders WHERE order_status = 'ready' AND order_time = GETDATE()`);
+        daily_profits = daily_profits.recordsets[0][0].daily_profs;
+        //console.log('DAILY PROFITS: ', daily_profits);
+        let yesterday_profits = await pool.request().query(`SELECT SUM(total_price) AS yesterday_profs FROM orders WHERE order_status = 'ready' AND order_time = GETDATE()-1`);
+        yesterday_profits = yesterday_profits.recordsets[0][0].yesterday_profs;
+        let total_sales = await pool.request().query(`SELECT SUM(total_price) AS total_prce FROM orders WHERE order_status = 'ready'`);
+        total_sales = total_sales.recordsets[0][0].total_prce;
+        //console.log('TOTAL SALES: ', total_sales);
+        let last_10_days_profit = await pool.request().query(`SELECT DATEPART(YEAR, order_time) AS year, DATEPART(MONTH, order_time) AS month, DATEPART(DAY, order_time) AS day, SUM(total_price) AS money_earned FROM orders WHERE order_status = 'ready' AND order_time >= DATEADD(day,-10, GETDATE()) GROUP BY DATEPART(year, order_time), DATEPART(MONTH, order_time), DATEPART(DAY, order_time)`);
+        last_10_days_profit = last_10_days_profit.recordsets[0];
+        pool.close();
+        if (yesterday_profits == null)
+        {
+            yesterday_profits = 0;
+        }
+        if (daily_profits == null)
+        {
+            daily_profits = 0;
+        }
+        console.log('DAILY PROFITS: ', daily_profits);
+        if (total_sales == null)
+        {
+            total_sales = 0;
+        }
+        console.log('TOTAL SALES: ', total_sales);
+        for (let i=0; i<list1.length; i++)
+        {
+            list1[i]['order_items'] = []
+            for(let each of list2)
+            {
+                if (each.order_id === list1[i].order_id)
+                {
+                    list1[i].order_items.push(each.dish_name);
+                }
+            }
+        }
+
+        list1 = list1.reverse();
+        let recent_orders = list1.splice(0,4);
+        
+        let bad_orders = []
+        for (let ord of list1)
+        {
+            if (ord.rating < 3)
+            {
+                bad_orders.push(ord);
+            }
+        }
+
+        if (bad_orders.length > 10)
+        {
+            bad_orders = bad_orders.splice(0, 10)
+        }
+
+        console.log('TABLE 2 CONTENTS: ', bad_orders);
+        console.log('TABLE 1 CONTENTS: ', recent_orders);
+        //return [orders_q, curr_mon_profit, curr_yr_profit, recent_orders, bad_orders, emp_count, [daily_profits, yesterday_profits], [total_sales, last_10_days_profit]];
+        return [orders_q, [curr_mon_profit, prev_mon_profit], [curr_yr_profit, prev_yr_profit], recent_orders, bad_orders, emp_count, [daily_profits, yesterday_profits, last_10_days_profit], total_sales];
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+// async function setOrderReview (order_id, review)
+// {
+//     try
+//     {
+//         let pool = await sql.connect(config);
+//         let orders = await pool.request().query(`UPDATE dbo.orders SET review = '${review}', where orders.order_id = ${order_id}`);
+//         pool.close();
+//         return orders;
+//     }
+//     catch (error)
+//     {
+//         console.log(error);
+//     }
+// }
 
 module.exports = 
 {
@@ -657,5 +952,14 @@ module.exports =
     assignOrder : assignOrder,
     getBadReviews : getBadReviews,
     getUserById : getUserById,
-    changeTableStatus : changeTableStatus
+    changeTableStatus : changeTableStatus,
+    CheckUname : CheckUname,
+    CheckPhone : CheckPhone,
+    CheckNIC : CheckNIC,
+    getItemCategoriesById : getItemCategoriesById,
+    CheckItemName : CheckItemName,
+    CheckInventoryItemName : CheckInventoryItemName,
+    getAcceptedCount : getAcceptedCount,
+    setOrderRatingAndReview : setOrderRatingAndReview,
+    getDashboardData : getDashboardData,
 }
